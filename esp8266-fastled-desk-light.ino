@@ -43,6 +43,8 @@ extern "C" {
 #define SENSOR_TYPE 1             // 0: Digital Sensor, 1: Analog Sensor
 const bool apMode = false;        // set to true if the esp8266 should open an access point
 
+#define HOSTNAME "ESP8266 - Desk Light"   // Name that appears in your network
+
 /*######################## MAIN CONFIG END ####################*/
 
 
@@ -309,6 +311,7 @@ void setup() {
     Serial.printf("Connecting to %s\n", ssid);
     if (String(WiFi.SSID()) != String(ssid)) {
       WiFi.begin(ssid, password);
+      WiFi.hostname(HOSTNAME);
     }
   }
 
