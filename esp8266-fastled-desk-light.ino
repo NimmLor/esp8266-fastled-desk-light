@@ -51,10 +51,7 @@ const bool apMode = false;        // set to true if the esp8266 should open an a
 
 
 
-//#define RECV_PIN D4
-//IRrecv irReceiver(RECV_PIN);
 
-//#include "Commands.h"
 
 ESP8266WebServer webServer(80);
 //WebSocketsServer webSocketsServer = WebSocketsServer(81);
@@ -98,7 +95,7 @@ uint8_t cooling = 3;
 // Default 120, suggested range 50-200.
 uint8_t sparking = 50;
 
-uint8_t speed = 30;
+uint8_t animationspeed = 30;
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -148,23 +145,23 @@ typedef PatternAndName PatternAndNameList[];
 // List of patterns to cycle through.  Each is defined as a separate function below.
 
 PatternAndNameList patterns = {
-  { ReactToSound,           "Sound Reactive" },
-  { pride,                  "Pride" },
-  { pride_Waves,             "Pride Waves" },
-  { pride_Rings,             "Pride Rings" },
+  { soundReactive,          "Sound Reactive" },
+  //{ pride,                  "Pride" },
+  { pride_Waves,            "Pride Waves" },
+  { pride_Rings,            "Pride Rings" },
   { colorWaves,             "Color Waves" },
   { colorWaves_vert,        "Color Rings" },
   { rainbow,                "Horizontal Rainbow" },
   { rainbow_vert,           "Vertical Rainbow" },
   { rainbowSolid,           "Solid Rainbow" },
-  { confetti,               "Confetti" },
+  //{ confetti,             "Confetti" },
   { sinelon,                "Sinelon" },
   { bpm,                    "Beat" },
-  //{ bpm_rings,                    "Rings" },
+  //{ bpm_rings,            "Rings" },
   { juggle,                 "Juggle" },
   { fire,                   "Fire" },
   { water,                  "Water" },
-
+  
   // twinkle patterns
   { rainbowTwinkles,        "Rainbow Twinkles" },
   { snowTwinkles,           "Snow Twinkles" },
@@ -357,9 +354,9 @@ void setup() {
 
   webServer.on("/speed", HTTP_POST, []() {
     String value = webServer.arg("value");
-    speed = value.toInt();
-    broadcastInt("speed", speed);
-    sendInt(speed);
+    animationspeed = value.toInt();
+    broadcastInt("speed", animationspeed);
+    sendInt(animationspeed);
   });
 
   webServer.on("/twinkleSpeed", HTTP_POST, []() {
@@ -1041,7 +1038,7 @@ void sinelon()
 {
   // a colored dot sweeping back and forth, with fading trails
   fadeToBlackBy( leds, NUM_LEDS, 20);
-  int pos = beatsin16(speed, 0, NUM_LEDS);
+  int pos = beatsin16(animationspeed, 0, NUM_LEDS);
   static int prevpos = 0;
   CRGB color = ColorFromPalette(palettes[currentPaletteIndex], gHue, 255);
   if ( pos < prevpos ) {
@@ -1055,7 +1052,7 @@ void sinelon()
 void bpm()
 {
   // colored stripes pulsing at a defined Beats-Per-Minute (BPM)
-  uint8_t beat = beatsin8( speed, 64, 255);
+  uint8_t beat = beatsin8( animationspeed, 64, 255);
   CRGBPalette16 palette = palettes[currentPaletteIndex];
   for ( int i = 0; i < NUM_LEDS; i++) {
     leds[i] = ColorFromPalette(palette, gHue + (i * 2), beat - gHue + (i * 10));
@@ -1068,7 +1065,7 @@ void bpm_rings()
   myLed++;
   if (myLed > (LINE_COUNT - 1))myLed = 0;
   // colored stripes pulsing at a defined Beats-Per-Minute (BPM)
-  uint8_t beat = beatsin8(speed/4, 64, 255);
+  uint8_t beat = beatsin8(animationspeed/4, 64, 255);
   CRGBPalette16 palette = palettes[currentPaletteIndex];
   for (int p = 0; p < LINE_COUNT; p++)
   {
@@ -1462,7 +1459,7 @@ void Decay_Ring(int pos, int decay)
 }
 
 
-void ReactToSound()
+void soundReactive()
 {
   static int minlevel = 0;
   static int decay = 20;

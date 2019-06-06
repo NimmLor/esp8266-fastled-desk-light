@@ -94,7 +94,7 @@ String getSparking() {
 }
 
 String getSpeed() {
-  return String(speed);
+  return String(animationspeed);
 }
 
 String getTwinkleSpeed() {
