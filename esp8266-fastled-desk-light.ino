@@ -15,31 +15,39 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
-//#define FASTLED_ALLOW_INTERRUPTS 1
-//#define INTERRUPT_THRESHOLD 1
 #define FASTLED_INTERRUPT_RETRY_COUNT 0
-
 #include <FastLED.h>
 FASTLED_USING_NAMESPACE
-
 extern "C" {
 #include "user_interface.h"
 }
-
 #include <ESP8266WiFi.h>
-//#include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPUpdateServer.h>
-//#include <WebSocketsServer.h>
 #include <FS.h>
 #include <EEPROM.h>
-//#include <IRremoteESP8266.h>
 #include "GradientPalettes.h"
-
-#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
-
 #include "Field.h"
+
+
+/*######################## MAIN CONFIG ########################*/
+#define DATA_PIN      D4          // Should be GPIO02 on other boards like the NodeMCU
+#define LED_TYPE      WS2812B     // You might also use a WS2811 or any other strip that is fastled compatible 
+#define COLOR_ORDER   GRB         // Change this if colors are swapped (in my case, red was swapped with green)
+#define MILLI_AMPS    2000        // IMPORTANT: set the max milli-Amps of your power supply (4A = 4000mA)
+#define LINE_COUNT    8           // Amount of led strip pieces
+#define LEDS_PER_LINE 10          // Amount of led pixel per single led strip piece
+
+#define SOUND_REACTIVE            // Uncomment to disable the Sound reactive mode
+#define SOUND_SENSOR_PIN A0       // An Analog sensor must be connected to an analog pin
+#define SENSOR_TYPE 1             // 0: Digital Sensor, 1: Analog Sensor
+const bool apMode = false;        // set to true if the esp8266 should open an access point
+
+/*######################## MAIN CONFIG END ####################*/
+
+
+
+
 
 //#define RECV_PIN D4
 //IRrecv irReceiver(RECV_PIN);
@@ -51,16 +59,11 @@ ESP8266WebServer webServer(80);
 ESP8266HTTPUpdateServer httpUpdateServer;
 
 #include "FSBrowser.h"
-
-#define DATA_PIN      D5
-#define LED_TYPE      WS2811
-#define COLOR_ORDER   RGB
-#define NUM_LEDS      200
-
-#define MILLI_AMPS         2000 // IMPORTANT: set the max milli-Amps of your power supply (4A = 4000mA)
+#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
+#define NUM_LEDS      (LINE_COUNT * LEDS_PER_LINE)
 #define FRAMES_PER_SECOND  120  // here you can control the speed. With the Access Point / Web Server the animations run a bit slower.
 
-const bool apMode = false;
+
 
 #include "Secrets.h" // this file is intentionally not included in the sketch, so nobody accidentally commits their secret information.
 // create a Secrets.h file with the following:
@@ -76,7 +79,7 @@ const bool apMode = false;
 CRGB leds[NUM_LEDS];
 
 const uint8_t brightnessCount = 5;
-uint8_t brightnessMap[brightnessCount] = { 16, 32, 64, 128, 255 };
+uint8_t brightnessMap[brightnessCount] = { 5, 32, 64, 128, 255 };
 uint8_t brightnessIndex = 0;
 
 // ten seconds per color palette makes a good demo
@@ -86,12 +89,12 @@ uint8_t secondsPerPalette = 10;
 // COOLING: How much does the air cool as it rises?
 // Less cooling = taller flames.  More cooling = shorter flames.
 // Default 50, suggested range 20-100
-uint8_t cooling = 49;
+uint8_t cooling = 3;
 
 // SPARKING: What chance (out of 255) is there that a new spark will be lit?
 // Higher chance = more roaring fire.  Lower chance = more flickery fire.
 // Default 120, suggested range 50-200.
-uint8_t sparking = 60;
+uint8_t sparking = 50;
 
 uint8_t speed = 30;
 
@@ -143,8 +146,22 @@ typedef PatternAndName PatternAndNameList[];
 // List of patterns to cycle through.  Each is defined as a separate function below.
 
 PatternAndNameList patterns = {
+  { ReactToSound,           "Sound Reactive" },
   { pride,                  "Pride" },
+  { pride_Waves,             "Pride Waves" },
+  { pride_Rings,             "Pride Rings" },
   { colorWaves,             "Color Waves" },
+  { colorWaves_vert,        "Color Rings" },
+  { rainbow,                "Horizontal Rainbow" },
+  { rainbow_vert,           "Vertical Rainbow" },
+  { rainbowSolid,           "Solid Rainbow" },
+  { confetti,               "Confetti" },
+  { sinelon,                "Sinelon" },
+  { bpm,                    "Beat" },
+  //{ bpm_rings,                    "Rings" },
+  { juggle,                 "Juggle" },
+  { fire,                   "Fire" },
+  { water,                  "Water" },
 
   // twinkle patterns
   { rainbowTwinkles,        "Rainbow Twinkles" },
@@ -167,16 +184,6 @@ PatternAndNameList patterns = {
   { fireTwinkles,           "Fire Twinkles" },
   { cloud2Twinkles,         "Cloud 2 Twinkles" },
   { oceanTwinkles,          "Ocean Twinkles" },
-
-  { rainbow,                "Rainbow" },
-  { rainbowWithGlitter,     "Rainbow With Glitter" },
-  { rainbowSolid,           "Solid Rainbow" },
-  { confetti,               "Confetti" },
-  { sinelon,                "Sinelon" },
-  { bpm,                    "Beat" },
-  { juggle,                 "Juggle" },
-  { fire,                   "Fire" },
-  { water,                  "Water" },
 
   { showSolidColor,         "Solid Color" }
 };
@@ -248,6 +255,13 @@ void setup() {
   Serial.print( F("Flash Size: ") ); Serial.println(ESP.getFlashChipRealSize());
   Serial.print( F("Vcc: ") ); Serial.println(ESP.getVcc());
   Serial.println();
+  
+#ifdef SOUND_REACTIVE
+#if SENSOR_TYPE == 0
+  pinMode(SOUND_SENSOR_PIN, INPUT);
+#endif
+#endif // SOUND_REACTIVE
+
 
   SPIFFS.begin();
   {
@@ -981,8 +995,22 @@ void showSolidColor()
 
 void rainbow()
 {
-  // FastLED's built-in rainbow generator
-  fill_rainbow( leds, NUM_LEDS, gHue, 255 / NUM_LEDS);
+  for (int l = 0; l < LINE_COUNT; l++)
+  {
+    fill_solid(leds + l * LEDS_PER_LINE, LEDS_PER_LINE, CHSV(((255.00/(LINE_COUNT))*l)+gHue, 255, 255));
+  }
+}
+
+void rainbow_vert()
+{
+  for (int l = 0; l < LEDS_PER_LINE; l++)
+  {
+    for (int p = 0; p < LINE_COUNT; p++)
+    {
+      if(p % 2 == 0) leds[p*LEDS_PER_LINE + l] = CHSV((((255.00 / (LEDS_PER_LINE))*l) + gHue), 255, 255);
+      else leds[p*LEDS_PER_LINE + (LEDS_PER_LINE - l - 1)] = CHSV((((255.00 / (LEDS_PER_LINE))*l) + gHue), 255, 255);
+    }
+  }
 }
 
 void rainbowWithGlitter()
@@ -1028,6 +1056,21 @@ void bpm()
   CRGBPalette16 palette = palettes[currentPaletteIndex];
   for ( int i = 0; i < NUM_LEDS; i++) {
     leds[i] = ColorFromPalette(palette, gHue + (i * 2), beat - gHue + (i * 10));
+  }
+}
+
+void bpm_rings()
+{
+  static int myLed = 0;
+  myLed++;
+  if (myLed > (LINE_COUNT - 1))myLed = 0;
+  // colored stripes pulsing at a defined Beats-Per-Minute (BPM)
+  uint8_t beat = beatsin8(speed/4, 64, 255);
+  CRGBPalette16 palette = palettes[currentPaletteIndex];
+  for (int p = 0; p < LINE_COUNT; p++)
+  {
+    if (p % 2 == 0) leds[p*LEDS_PER_LINE + myLed] = ColorFromPalette(palette, gHue + (myLed * 2), beat - gHue + (myLed * 10));
+    else leds[p*LEDS_PER_LINE + (LEDS_PER_LINE - myLed - 1)] = ColorFromPalette(palette, gHue + (myLed * 2), beat - gHue + (myLed * 10));
   }
 }
 
@@ -1119,6 +1162,96 @@ void pride()
   }
 }
 
+void pride_Waves()
+{
+  static uint16_t sPseudotime = 0;
+  static uint16_t sLastMillis = 0;
+  static uint16_t sHue16 = 0;
+
+  uint8_t sat8 = beatsin88(87, 220, 250);
+  uint8_t brightdepth = beatsin88(341, 96, 224);
+  uint16_t brightnessthetainc16 = beatsin88(203, (25 * 256), (40 * 256));
+  uint8_t msmultiplier = beatsin88(147, 23, 60);
+
+  uint16_t hue16 = sHue16;//gHue * 256;
+  uint16_t hueinc16 = beatsin88(113, 1, 3000);
+
+  uint16_t ms = millis();
+  uint16_t deltams = ms - sLastMillis;
+  sLastMillis = ms;
+  sPseudotime += deltams * msmultiplier;
+  sHue16 += deltams * beatsin88(400, 5, 9);
+  uint16_t brightnesstheta16 = sPseudotime;
+
+  for (uint16_t i = 0; i < LEDS_PER_LINE; i++) {
+    hue16 += hueinc16;
+    uint8_t hue8 = hue16 / 256;
+
+    brightnesstheta16 += brightnessthetainc16;
+    uint16_t b16 = sin16(brightnesstheta16) + 32768;
+
+    uint16_t bri16 = (uint32_t)((uint32_t)b16 * (uint32_t)b16) / 65536;
+    uint8_t bri8 = (uint32_t)(((uint32_t)bri16) * brightdepth) / 65536;
+    bri8 += (255 - brightdepth);
+
+    CRGB newcolor = CHSV(hue8, sat8, bri8);
+
+    uint16_t pixelnumber = i;
+    pixelnumber = (LEDS_PER_LINE - 1) - pixelnumber;
+
+    for (int l = 0; l < LEDS_PER_LINE; l++)
+    {
+      nblend(leds[pixelnumber * LEDS_PER_LINE + l], newcolor, 64);
+    }
+
+  }
+}
+
+void pride_Rings()
+{
+  static uint16_t sPseudotime = 0;
+  static uint16_t sLastMillis = 0;
+  static uint16_t sHue16 = 0;
+
+  uint8_t sat8 = beatsin88(87, 220, 250);
+  uint8_t brightdepth = beatsin88(341, 96, 224);
+  uint16_t brightnessthetainc16 = beatsin88(203, (25 * 256), (40 * 256));
+  uint8_t msmultiplier = beatsin88(147, 23, 60);
+
+  uint16_t hue16 = sHue16;//gHue * 256;
+  uint16_t hueinc16 = beatsin88(113, 1, 3000);
+
+  uint16_t ms = millis();
+  uint16_t deltams = ms - sLastMillis;
+  sLastMillis = ms;
+  sPseudotime += deltams * msmultiplier;
+  sHue16 += deltams * beatsin88(400, 5, 9);
+  uint16_t brightnesstheta16 = sPseudotime;
+
+  for (uint16_t i = 0; i < LEDS_PER_LINE; i++) {
+    hue16 += hueinc16;
+    uint8_t hue8 = hue16 / 256;
+
+    brightnesstheta16 += brightnessthetainc16;
+    uint16_t b16 = sin16(brightnesstheta16) + 32768;
+
+    uint16_t bri16 = (uint32_t)((uint32_t)b16 * (uint32_t)b16) / 65536;
+    uint8_t bri8 = (uint32_t)(((uint32_t)bri16) * brightdepth) / 65536;
+    bri8 += (255 - brightdepth);
+
+    CRGB newcolor = CHSV(hue8, sat8, bri8);
+
+    uint16_t pixelnumber = i;
+    pixelnumber = (LEDS_PER_LINE - 1) - pixelnumber;
+
+    for (int p = 0; p < LINE_COUNT; p++)
+    {
+      if (p % 2 == 0) nblend(leds[p*LEDS_PER_LINE + pixelnumber], newcolor, 64);
+      else nblend(leds[p*LEDS_PER_LINE + (LEDS_PER_LINE - pixelnumber - 1)], newcolor, 64);
+    }
+  }
+}
+
 void radialPaletteShift()
 {
   for (uint16_t i = 0; i < NUM_LEDS; i++) {
@@ -1136,17 +1269,19 @@ void heatMap(CRGBPalette16 palette, bool up)
   random16_add_entropy(random(256));
 
   // Array of temperature readings at each simulation cell
-  static byte heat[NUM_LEDS];
+  static byte heat[LEDS_PER_LINE];
 
   byte colorindex;
 
   // Step 1.  Cool down every cell a little
-  for ( uint16_t i = 0; i < NUM_LEDS; i++) {
-    heat[i] = qsub8( heat[i],  random8(0, ((cooling * 10) / NUM_LEDS) + 2));
+  for ( uint16_t i = 0; i < LEDS_PER_LINE; i++) {
+
+    heat[i] = qsub8( heat[i],  random8(0, ((cooling * 10) / LEDS_PER_LINE) + 2));
+
   }
 
   // Step 2.  Heat from each cell drifts 'up' and diffuses a little
-  for ( uint16_t k = NUM_LEDS - 1; k >= 2; k--) {
+  for ( uint16_t k = LEDS_PER_LINE - 1; k >= 2; k--) {
     heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2] ) / 3;
   }
 
@@ -1157,18 +1292,26 @@ void heatMap(CRGBPalette16 palette, bool up)
   }
 
   // Step 4.  Map from heat cells to LED colors
-  for ( uint16_t j = 0; j < NUM_LEDS; j++) {
+  for ( uint16_t j = 0; j < LEDS_PER_LINE; j++) {
     // Scale the heat value from 0-255 down to 0-240
     // for best results with color palettes.
     colorindex = scale8(heat[j], 190);
 
     CRGB color = ColorFromPalette(palette, colorindex);
 
-    if (up) {
-      leds[j] = color;
+    if (!up) {
+      for (int p = 0; p < LINE_COUNT; p++)
+      {
+        if (p % 2 == 0) leds[p*LEDS_PER_LINE + j] = color;
+        else leds[p*LEDS_PER_LINE + (LEDS_PER_LINE - j - 1)] = color;
+      }
     }
     else {
-      leds[(NUM_LEDS - 1) - j] = color;
+      for (int p = 0; p < LINE_COUNT; p++)
+      {
+        if (p % 2 == 0) leds[p*LEDS_PER_LINE + ((LEDS_PER_LINE - 1) - j)] = color;
+        else leds[p*LEDS_PER_LINE + (LEDS_PER_LINE - ((LEDS_PER_LINE - 1) - j) - 1)] = color;
+      }
     }
   }
 }
@@ -1201,13 +1344,18 @@ uint8_t beatsaw8( accum88 beats_per_minute, uint8_t lowest = 0, uint8_t highest 
 
 void colorWaves()
 {
-  colorwaves( leds, NUM_LEDS, gCurrentPalette);
+  colorwaves( leds, LINE_COUNT, gCurrentPalette, 1);
+}
+
+void colorWaves_vert()
+{
+  colorwaves(leds, LEDS_PER_LINE, gCurrentPalette, 0);
 }
 
 // ColorWavesWithPalettes by Mark Kriegsman: https://gist.github.com/kriegsman/8281905786e8b2632aeb
 // This function draws color waves with an ever-changing,
 // widely-varying set of parameters, using a color palette.
-void colorwaves( CRGB* ledarray, uint16_t numleds, CRGBPalette16& palette)
+void colorwaves( CRGB* ledarray, uint16_t numleds, CRGBPalette16& palette, uint8_t horizonal)
 {
   static uint16_t sPseudotime = 0;
   static uint16_t sLastMillis = 0;
@@ -1255,6 +1403,22 @@ void colorwaves( CRGB* ledarray, uint16_t numleds, CRGBPalette16& palette)
     pixelnumber = (numleds - 1) - pixelnumber;
 
     nblend( ledarray[pixelnumber], newcolor, 128);
+    if (horizonal != 0)
+    {
+      for (int l = 0; l < LEDS_PER_LINE; l++)
+      {
+        nblend(ledarray[pixelnumber * LEDS_PER_LINE + l], newcolor, 128);
+      }
+    }
+    else
+    {
+      for (int p = 0; p < LINE_COUNT; p++)
+      {
+        if (p % 2 == 0) nblend(leds[p*LEDS_PER_LINE + pixelnumber], newcolor, 128);
+        else nblend(leds[p*LEDS_PER_LINE + (LEDS_PER_LINE - pixelnumber - 1)], newcolor, 128);
+      }
+    }
+
   }
 }
 
@@ -1265,4 +1429,73 @@ void palettetest( CRGB* ledarray, uint16_t numleds, const CRGBPalette16& gCurren
   static uint8_t startindex = 0;
   startindex--;
   fill_palette( ledarray, numleds, startindex, (256 / NUM_LEDS) + 1, gCurrentPalette, 255, LINEARBLEND);
+}
+
+void Color_Ring(int pos, CRGB color)
+{
+  for (int p = 0; p < LINE_COUNT; p++)
+  {
+    if (p % 2 == 0) leds[p*LEDS_PER_LINE + pos] = color;
+    else leds[p*LEDS_PER_LINE + (LEDS_PER_LINE - pos - 1)] = color;
+  }
+}
+
+void Color_Ring(int pos, CHSV color)
+{
+  for (int p = 0; p < LINE_COUNT; p++)
+  {
+    if (p % 2 == 0) leds[p*LEDS_PER_LINE + pos] = color;
+    else leds[p*LEDS_PER_LINE + (LEDS_PER_LINE - pos - 1)] = color;
+  }
+}
+
+void Decay_Ring(int pos, int decay)
+{
+  for (int p = 0; p < LINE_COUNT; p++)
+  {
+    if (p % 2 == 0) fadeToBlackBy(leds + p*LEDS_PER_LINE + (LEDS_PER_LINE - pos - 1), 1, decay);
+    else fadeToBlackBy(leds + p * LEDS_PER_LINE + (LEDS_PER_LINE - pos - 1), 1, decay);
+  }
+}
+
+
+void ReactToSound()
+{
+  static int minlevel = 0;
+  static int decay = 20;
+  static int lastlevel = 2;
+  static uint8_t level = 0;
+
+#if SENSOR_TYPE == 0
+  if (digitalRead(SOUND_SENSOR_PIN) > 0)level++;
+  else level--;
+  if (level < minlevel)level = minlevel;
+  if (level > LEDS_PER_LINE)level = LEDS_PER_LINE;
+  for (int i = 0; i < level; i++)
+  {
+    Color_Ring(i, CHSV(gHue, 255, 255));
+  }
+  fadeToBlackBy(leds + level, LEDS_PER_LINE - level, decay);
+#endif
+#if SENSOR_TYPE == 1
+  
+  int mlevel = map(analogRead(SOUND_SENSOR_PIN), 0, 1024, 0, LEDS_PER_LINE);
+  
+  if (lastlevel > mlevel) level = lastlevel  - 2;
+  else if (lastlevel < mlevel) level = lastlevel+2;
+
+
+  if (level < minlevel)level = minlevel;
+  if (level > LEDS_PER_LINE)level = LEDS_PER_LINE;
+  for (int i = 0; i < level; i++)
+  {
+    Color_Ring(i, CHSV(gHue, 255, 255));
+  }
+  for (int i = LEDS_PER_LINE; i >= (level-1); i--)
+  {
+    Decay_Ring(i, decay);
+  }
+  lastlevel = level;
+  Serial.printf("%d, %d\n", mlevel, level);
+#endif
 }
