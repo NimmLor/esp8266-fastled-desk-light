@@ -86,8 +86,8 @@ The app is installed via the Arduino IDE which can be [downloaded here](https://
 
 The app depends on the following libraries. They must either be downloaded from GitHub and placed in the Arduino 'libraries' folder, or installed as [described here](https://www.arduino.cc/en/Guide/Libraries) by using the Arduino library manager.
 
-- [FastLED](https://github.com/FastLED/FastLED)
-- [Arduino WebSockets](https://github.com/Links2004/arduinoWebSockets)
+- [FastLED 3.2.6](https://github.com/FastLED/FastLED)
+
 
 Download the app code from GitHub using the **Releases** section on [GitHub](https://github.com/NimmLor/esp8266-logo-webserver/releases) and download the ZIP file. Decompress the ZIP file in your Arduino sketch folder. Rename the folder from *esp8266-logo-webserver-master* to *esp8266-logo-webserver*
 
