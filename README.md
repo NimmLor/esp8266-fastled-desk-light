@@ -9,7 +9,7 @@ This is a fork of [jasoncoon's esp8266 fastled webserver](https://github.com/jas
 
 ## Important!
 
-**FastLED 3.2.7 & 3.2.8 DO NOT WORK**
+**FastLED 3.2.7 & 3.2.8 DOES NOT WORK**
 
 **esp8266 2.5.0 and above causes compilation errors**
 
