@@ -40,10 +40,12 @@ extern "C" {
 
 #define SOUND_REACTIVE            // Uncomment to disable the Sound reactive mode
 #define SOUND_SENSOR_PIN A0       // An Analog sensor must be connected to an analog pin
-#define SENSOR_TYPE 1             // 0: Digital Sensor, 1: Analog Sensor
 const bool apMode = false;        // set to true if the esp8266 should open an access point
 
 #define HOSTNAME "ESP8266 - Desk Light"   // Name that appears in your network
+#define CORRECTION UncorrectedColor       // If colors are weird use TypicalLEDStrip
+
+#define RANDOM_AUTOPLAY_PATTERN   // if enabled the next pattern for autoplay is choosen at random, if commented out patterns will play in order
 
 /*######################## MAIN CONFIG END ####################*/
 
@@ -229,9 +231,9 @@ void setup() {
   Serial.setDebugOutput(true);
 
   FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);         // for WS2812 (Neopixel)
-  //FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS); // for APA102 (Dotstar)
+//FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS); // for APA102 (Dotstar)
   FastLED.setDither(false);
-  FastLED.setCorrection(TypicalLEDStrip);
+  FastLED.setCorrection(CORRECTION);
   FastLED.setBrightness(brightness);
   FastLED.setMaxPowerInVoltsAndMilliamps(5, MILLI_AMPS);
   fill_solid(leds, NUM_LEDS, CRGB::Black);
@@ -870,11 +872,29 @@ void setSolidColor(uint8_t r, uint8_t g, uint8_t b)
 // increase or decrease the current pattern number, and wrap around at the ends
 void adjustPattern(bool up)
 {
+#ifdef RANDOM_AUTOPLAY_PATTERN
+  if (autoplay == 1)
+  {
+    uint8_t lastpattern = currentPatternIndex;
+    while (currentPatternIndex == lastpattern)
+    {
+      uint8_t newpattern = random8(0, patternCount - 1);
+      if (newpattern != lastpattern)currentPatternIndex = newpattern;
+    }
+  }
+#else // RANDOM_AUTOPLAY_PATTERN
   if (up)
     currentPatternIndex++;
   else
     currentPatternIndex--;
-
+#endif
+  if (autoplay == 0)
+  {
+    if (up)
+      currentPatternIndex++;
+    else
+      currentPatternIndex--;
+  }
   // wrap around at the ends
   if (currentPatternIndex < 0)
     currentPatternIndex = patternCount - 1;
