@@ -4,7 +4,7 @@
 
 This is a fork of [jasoncoon's esp8266 fastled webserver](https://github.com/jasoncoon/esp8266-fastled-webserver) that was adapted to control the colors of my  [WiFi Controlled Desk Lamp](https://www.thingiverse.com/thing:3676536)
 
-[![https://youtu.be/R0lnP2zpz5U](preview.gif)](https://youtu.be/R0lnP2zpz5U)
+[![https://youtu.be/Lymm2JvcB-8](https://github.com/NimmLor/esp8266-fastled-desk-light/blob/master/preview.gif?raw=true)](https://youtu.be/R0lnP2zpz5U)
 
 
 ## Important!
