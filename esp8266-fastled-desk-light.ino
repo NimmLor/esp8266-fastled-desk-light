@@ -54,7 +54,6 @@ const bool apMode = false;        // set to true if the esp8266 should open an a
 
 
 
-
 ESP8266WebServer webServer(80);
 //WebSocketsServer webSocketsServer = WebSocketsServer(81);
 ESP8266HTTPUpdateServer httpUpdateServer;
