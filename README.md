@@ -20,7 +20,7 @@ This is a fork of [jasoncoon's esp8266 fastled webserver](https://github.com/jas
 Hardware
 --------
 
-**Check out the project on [Thingiverse](https://www.thingiverse.com/thing:3676533)**
+**Check out the project on [Thingiverse](https://www.thingiverse.com/thing:3676533) for more details.**
 
 [![https://www.thingiverse.com/thing:3676533](https://cdn.thingiverse.com/site/img/thingiverse-logo-2015.png)](https://www.thingiverse.com/thing:3676533)
 
