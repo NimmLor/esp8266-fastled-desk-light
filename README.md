@@ -21,6 +21,7 @@ Hardware
 --------
 
 **Check out the project on [Thingiverse](https://www.thingiverse.com/thing:3676533)**
+
 [![https://www.thingiverse.com/thing:3676533](https://cdn.thingiverse.com/site/img/thingiverse-logo-2015.png)](https://www.thingiverse.com/thing:3676533)
 
 Features
