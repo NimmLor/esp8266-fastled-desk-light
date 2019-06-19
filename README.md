@@ -2,9 +2,9 @@
 
 
 
-This is a fork of [jasoncoon's esp8266 fastled webserver](https://github.com/jasoncoon/esp8266-fastled-webserver) that was adapted to control the colors of my  [WiFi Controlled Desk Lamp](https://www.thingiverse.com/thing:3676536)
+This is a fork of [jasoncoon's esp8266 fastled webserver](https://github.com/jasoncoon/esp8266-fastled-webserver) that was adapted to control the colors of my  [WiFi Controlled Desk Lamp](https://www.thingiverse.com/thing:3676533)
 
-[![https://youtu.be/R0lnP2zpz5U](preview.gif)](https://youtu.be/R0lnP2zpz5U)
+[![https://youtu.be/Lymm2JvcB-8](https://github.com/NimmLor/esp8266-fastled-desk-light/blob/master/preview.gif?raw=true)](https://youtu.be/Lymm2JvcB-8)
 
 
 ## Important!
@@ -20,33 +20,9 @@ This is a fork of [jasoncoon's esp8266 fastled webserver](https://github.com/jas
 Hardware
 --------
 
-##### ESP8266
+**Check out the project on [Thingiverse](https://www.thingiverse.com/thing:3676533) for more details.**
 
-<img src="https://ae01.alicdn.com/kf/HTB1QYHzJKuSBuNjy1Xcq6AYjFXau/ESP8266-ESP-12-ESP12-WeMos-D1-Mini-Modul-Wemos-D1-Mini-WiFi-Entwicklung-Bord-Micro-USB.jpg" height="300px">
-
-[Wemos D1 mini](http://s.click.aliexpress.com/e/cBDdafPw) is recommended, but any other ESP8266 variant should work too, but it might require an additional step-down converter and wouldn't fit the case.
-
-
-
-##### Addressable Led Strip
-
-<img src="https://ae01.alicdn.com/kf/HTB1THW.i6oIL1JjSZFyq6zFBpXa0/DC5V-WS2812B-1-mt-4-mt-5-mt-30-60-74-96-144-pixel-leds-m.jpg" height="300px" align="middle">
-
-I would recommend buying a strip with 60 leds/m or more.
-
-[WS2812b LED strip](http://s.click.aliexpress.com/e/SkQFQqc), make sure you choose **IP30** any other IP rating wouldn't make any sense and **WILL NOT FIT**.
-
-
-
-##### 5v 3A Power supply
-
-To supply the lamp you will need a 5V Power Supply with at least 3A (for ~ 100 Led Pixels), choose one with higher current if you plan to use a led strip that is more dense.
-
-
-
-##### Analog Microphone for the Sound Reactive mode (optional)
-
-
+[![https://www.thingiverse.com/thing:3676533](https://cdn.thingiverse.com/site/img/thingiverse-logo-2015.png)](https://www.thingiverse.com/thing:3676533)
 
 Features
 --------
@@ -56,6 +32,7 @@ Features
 * Change the display pattern
 * Adjust the color
 * Activate pattern autoplay
+* **React to sound**
 
 
 ### Upcoming Features
@@ -82,14 +59,15 @@ The web app is stored in SPIFFS (on-board flash memory).
 
 Installing
 -----------
-The app is installed via the Arduino IDE which can be [downloaded here](https://www.arduino.cc/en/main/software). The ESP8266 boards will need to be added to the Arduino IDE which is achieved as follows. Click File > Preferences and copy and paste the URL "http://arduino.esp8266.com/stable/package_esp8266com_index.json" into the Additional Boards Manager URLs field. Click OK. Click Tools > Boards: ... > Boards Manager. Find and click on ESP8266 (using the Search function may expedite this). Click on Install. After installation, click on Close and then select your ESP8266 board from the Tools > Board: ... menu.
+The app is installed via the Arduino IDE 1.8.8 which can be [downloaded here](https://www.arduino.cc/en/Main/OldSoftwareReleases#previous). 
+The ESP8266 boards will need to be added to the Arduino IDE which is achieved as follows. Click File > Preferences and copy and paste the URL "http://arduino.esp8266.com/stable/package_esp8266com_index.json" into the Additional Boards Manager URLs field. Click OK. Click Tools > Boards: ... > Boards Manager. Find and click on ESP8266 (using the Search function may expedite this). Choose 2.4.2 and click on Install. After installation, click on Close and then select your ESP8266 board from the Tools > Board: ... menu.
 
-The app depends on the following libraries. They must either be downloaded from GitHub and placed in the Arduino 'libraries' folder, or installed as [described here](https://www.arduino.cc/en/Guide/Libraries) by using the Arduino library manager.
+The app depends on the following librarie. They must either be downloaded from GitHub and placed in the Arduino 'libraries' folder, or installed as [described here](https://www.arduino.cc/en/Guide/Libraries) by using the Arduino library manager.
 
 - [FastLED 3.2.6](https://github.com/FastLED/FastLED)
 
 
-Download the app code from GitHub using the **Releases** section on [GitHub](https://github.com/NimmLor/esp8266-logo-webserver/releases) and download the ZIP file. Decompress the ZIP file in your Arduino sketch folder. Rename the folder from *esp8266-logo-webserver-master* to *esp8266-logo-webserver*
+Download the app code from GitHub using the **Releases** section on [GitHub](https://github.com/NimmLor/esp8266-fastled-desk-light/releases) and download the ZIP file. Decompress the ZIP file in your Arduino sketch folder. Rename the folder from *esp8266-fastled-desk-light-master* to *esp8266-fastled-desk-light*
 
 ### Configuration
 
@@ -101,9 +79,18 @@ The *LED_TYPE* can be set to any FastLED compatible strip. Most common is the WS
 
 If colors appear to be swapped you should change the color order. For me, red and green was swapped so i had to change the color order from *RGB* to *GRB*.
 
-You should also set the milli-amps of your power supply to prevent power overloading. I am using the regular USB connection so i defined 1500mA.
+You should also set the milli-amps of your power supply to prevent power overloading. I am using the regular USB connection so i defined 3000mA.
 
-`#define MILLI_AMPS 1500`
+Another important step is to set the `LINE_COUNT` and `LEDS_PER_LINE` constants
+LINE_COUNT defines how many columns the core has, the regular design has 8x slots.
+LEDS_PER_LINE defines how many LED pixels one piece of the led strip has.
+
+This project has feature to react to sound, this requires for the sound sensor to be connected to the microcontroller. It can be disabled by adding '\\\' in front of the following line.
+`#define SOUND_REACTIVE`
+
+
+To avoid an overload of the power supply you can set a maximum current limit.
+`#define MILLI_AMPS 3000`
 
 `#define RANDOM_AUTOPLAY_PATTERN` constant configures if the patterns in autoplay should be choosen at random, if you don't want this functionality just add '\\\' in the front.
 

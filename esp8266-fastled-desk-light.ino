@@ -38,7 +38,7 @@ extern "C" {
 #define LINE_COUNT    8           // Amount of led strip pieces
 #define LEDS_PER_LINE 10          // Amount of led pixel per single led strip piece
 
-#define SOUND_REACTIVE            // Uncomment to disable the Sound reactive mode
+#define SOUND_REACTIVE            // Uncomment to enable the Sound reactive mode
 #define SOUND_SENSOR_PIN A0       // An Analog sensor must be connected to an analog pin
 #define SENSOR_TYPE 1             // 0: Digital Sensor, 1: Analog Sensor
 const bool apMode = false;        // set to true if the esp8266 should open an access point
