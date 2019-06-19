@@ -40,6 +40,7 @@ extern "C" {
 
 #define SOUND_REACTIVE            // Uncomment to disable the Sound reactive mode
 #define SOUND_SENSOR_PIN A0       // An Analog sensor must be connected to an analog pin
+#define SENSOR_TYPE 1             // 0: Digital Sensor, 1: Analog Sensor
 const bool apMode = false;        // set to true if the esp8266 should open an access point
 
 #define HOSTNAME "ESP8266 - Desk Light"   // Name that appears in your network
@@ -62,7 +63,7 @@ ESP8266HTTPUpdateServer httpUpdateServer;
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 #define NUM_LEDS      (LINE_COUNT * LEDS_PER_LINE)
 #define FRAMES_PER_SECOND  120  // here you can control the speed. With the Access Point / Web Server the animations run a bit slower.
-
+#define SOUND_REACTIVE_FPS 120
 
 
 #include "Secrets.h" // this file is intentionally not included in the sketch, so nobody accidentally commits their secret information.
@@ -536,7 +537,8 @@ void loop() {
   FastLED.show();
 
   // insert a delay to keep the framerate modest
-  FastLED.delay(1000 / FRAMES_PER_SECOND);
+  if(currentPaletteIndex != 0) FastLED.delay(1000 / FRAMES_PER_SECOND);
+  else FastLED.delay(1000 / SOUND_REACTIVE_FPS);
 }
 
 //void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
@@ -1482,8 +1484,11 @@ void soundReactive()
 {
   static int minlevel = 0;
   static int decay = 20;
-  static int lastlevel = 2;
-  static uint8_t level = 0;
+  static double lastlevel = 2;
+  static double level = 0;
+  #define arrsize 3
+  static double measure8avg[arrsize] = { 0,0,0 };
+  static int iter = 0;
 
 #if SENSOR_TYPE == 0
   if (digitalRead(SOUND_SENSOR_PIN) > 0)level++;
@@ -1498,11 +1503,22 @@ void soundReactive()
 #endif
 #if SENSOR_TYPE == 1
   
-  int mlevel = map(analogRead(SOUND_SENSOR_PIN), 0, 1024, 0, LEDS_PER_LINE);
-  
-  if (lastlevel > mlevel) level = lastlevel  - 2;
-  else if (lastlevel < mlevel) level = lastlevel+2;
+  int measure = analogRead(SOUND_SENSOR_PIN);
+  iter++;
+  if (iter > arrsize)iter = 0;
+  measure8avg[iter] = measure;
+  double avg = 0;
+  for (int x = 0; x < arrsize; x++)
+  {
+    avg += measure8avg[x];
+  }
+  avg /= arrsize;
 
+  int mlevel = map(avg, 0, 1024, 0, LEDS_PER_LINE);
+  
+  //if (lastlevel > mlevel) level = lastlevel  - 0.8;
+  //else if (lastlevel < mlevel) level = lastlevel+1;
+  level = mlevel;
 
   if (level < minlevel)level = minlevel;
   if (level > LEDS_PER_LINE)level = LEDS_PER_LINE;
@@ -1513,8 +1529,11 @@ void soundReactive()
   for (int i = LEDS_PER_LINE; i >= (level-1); i--)
   {
     Decay_Ring(i, decay);
+    //Color_Ring(i, CHSV(0, 0, 0));
   }
   lastlevel = level;
-  Serial.printf("%d, %d\n", mlevel, level);
+  //Serial.println(measure);
+  //Serial.print(mlevel); Serial.print(" "); Serial.println(level);
+  //Serial.printf("%d, %d\n", mlevel, level);
 #endif
 }
