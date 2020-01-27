@@ -38,20 +38,36 @@ extern "C" {
 #define LINE_COUNT    8           // Amount of led strip pieces
 #define LEDS_PER_LINE 10          // Amount of led pixel per single led strip piece
 
-#define SOUND_REACTIVE            // Uncomment to enable the Sound reactive mode
-#define SOUND_SENSOR_PIN A0       // An Analog sensor must be connected to an analog pin
-#define SENSOR_TYPE 1             // 0: Digital Sensor, 1: Analog Sensor
 const bool apMode = false;        // set to true if the esp8266 should open an access point
 
-#define HOSTNAME "ESP8266 - Desk Light"   // Name that appears in your network
+//#define SOUND_REACTIVE            // Uncomment to enable the Sound reactive mode
+#define SOUND_SENSOR_PIN A0       // An Analog sensor must be connected to an analog pin
+#define SENSOR_TYPE 1             // 0: Digital Sensor, 1: Analog Sensor
+
+
+#define HOSTNAME "ESP8266 - Desk Lamp"   // Name that appears in your network
 #define CORRECTION UncorrectedColor       // If colors are weird use TypicalLEDStrip
 
 #define RANDOM_AUTOPLAY_PATTERN   // if enabled the next pattern for autoplay is choosen at random, if commented out patterns will play in order
+#define ENABLE_ALEXA_SUPPORT    // Espalexa library required
+
+
 
 /*######################## MAIN CONFIG END ####################*/
 
+/*######## Alexa Configuration ########*/
+#ifdef ENABLE_ALEXA_SUPPORT
+  #define ALEXA_DEVICE_NAME           "Lampe"
+  #define AddAutoplayDevice           "Lampe Autoplay"
+  #define AddStrobeDevice             "Lampe Strobo"
+  #define AddSpecificPatternDevice    "Lampe Standard"
 
-
+        
+  #ifdef AddSpecificPatternDevice
+    #define SpecificPattern 0   // Parameter defines what pattern gets executed
+  #endif
+#endif // ENABLE_ALEXA_SUPPORT
+/*###### Alexa Configuration END ######*/
 
 
 
@@ -76,6 +92,14 @@ ESP8266HTTPUpdateServer httpUpdateServer;
 // char* ssid = "your-ssid";
 // char* password = "your-password";
 
+#ifdef ENABLE_ALEXA_SUPPORT
+  #include <Espalexa.h>
+  void mainAlexaEvent(EspalexaDevice*);
+  Espalexa espalexa;
+  ESP8266WebServer webServer2(80);
+  
+  EspalexaDevice* alexa_main;
+#endif // ENABLE_ALEXA_SUPPORT
 
 CRGB leds[NUM_LEDS];
 
@@ -97,7 +121,7 @@ uint8_t cooling = 3;
 // Default 120, suggested range 50-200.
 uint8_t sparking = 50;
 
-uint8_t animationspeed = 30;
+uint8_t animationspeed = 70;
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -147,7 +171,7 @@ typedef PatternAndName PatternAndNameList[];
 // List of patterns to cycle through.  Each is defined as a separate function below.
 
 PatternAndNameList patterns = {
-  { soundReactive,          "Sound Reactive" },
+  //{ soundReactive,          "Sound Reactive" },
   //{ pride,                  "Pride" },
   { pride_Waves,            "Pride Waves" },
   { pride_Rings,            "Pride Rings" },
@@ -163,6 +187,8 @@ PatternAndNameList patterns = {
   { juggle,                 "Juggle" },
   { fire,                   "Fire" },
   { water,                  "Water" },
+  { strobe,                 "Strobe"},
+  { rainbow_strobe,         "Rainbow Strobe"},
   
   // twinkle patterns
   { rainbowTwinkles,        "Rainbow Twinkles" },
@@ -225,7 +251,9 @@ const String paletteNames[paletteCount] = {
 
 void setup() {
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
-
+#ifdef SOUND_REACTIVE
+  patterns[ARRAY_SIZE(patterns) - 2] = { soundReactive,          "Sound Reactive" };
+#endif // SOUND_REACTIVE
   Serial.begin(115200);
   delay(100);
   Serial.setDebugOutput(true);
@@ -277,32 +305,10 @@ void setup() {
     Serial.printf("\n");
   }
 
-  //disabled due to https://github.com/jasoncoon/esp8266-fastled-webserver/issues/62
-  //initializeWiFi();
 
   if (apMode)
   {
-    WiFi.mode(WIFI_AP);
-
-    // Do a little work to get a unique-ish name. Append the
-    // last two bytes of the MAC (HEX'd) to "Thing-":
-    uint8_t mac[WL_MAC_ADDR_LENGTH];
-    WiFi.softAPmacAddress(mac);
-    String macID = String(mac[WL_MAC_ADDR_LENGTH - 2], HEX) +
-                   String(mac[WL_MAC_ADDR_LENGTH - 1], HEX);
-    macID.toUpperCase();
-    String AP_NameString = "ESP8266 Thing " + macID;
-
-    char AP_NameChar[AP_NameString.length() + 1];
-    memset(AP_NameChar, 0, AP_NameString.length() + 1);
-
-    for (int i = 0; i < AP_NameString.length(); i++)
-      AP_NameChar[i] = AP_NameString.charAt(i);
-
-    WiFi.softAP(AP_NameChar, WiFiAPPSK);
-
-    Serial.printf("Connect to Wi-Fi access point: %s\n", AP_NameChar);
-    Serial.println("and open http://192.168.4.1 in your browser");
+    initApMode();
   }
   else
   {
@@ -314,7 +320,63 @@ void setup() {
     }
   }
 
-  httpUpdateServer.setup(&webServer);
+
+#ifdef ENABLE_ALEXA_SUPPORT
+  alexa_main = new EspalexaDevice(ALEXA_DEVICE_NAME, mainAlexaEvent, EspalexaDeviceType::color);
+  espalexa.addDevice(alexa_main);
+  #ifdef AddAutoplayDevice
+    espalexa.addDevice(AddAutoplayDevice, AlexaAutoplayEvent, EspalexaDeviceType::onoff); //non-dimmable device
+  #endif
+  #ifdef AddStrobeDevice
+    espalexa.addDevice(AddStrobeDevice, AlexaStrobeEvent, EspalexaDeviceType::color); //non-dimmable device
+  #endif
+  #ifdef AddSpecificPatternDevice
+    espalexa.addDevice(AddSpecificPatternDevice, AlexaSpecificEvent, EspalexaDeviceType::onoff); //non-dimmable device
+  #endif
+
+
+  webServer.onNotFound([]() {
+    if (!espalexa.handleAlexaApiCall(webServer.uri(), webServer.arg(0))) //if you don't know the URI, ask espalexa whether it is an Alexa control request
+    {
+      //whatever you want to do with 404s
+      webServer.send(404, "text/plain", "Not found");
+    }
+  });
+
+
+
+  webServer.on("/alexa", HTTP_GET, []() {
+    String h = "<font face='arial'><h1> Alexa pairing mode</h1>";
+    h+= "<h2>Procedure: </h3>";
+    h+= "The webserver will reboot and the UI won't be available.<br>";
+    h+= "<b>Now. Say to Alexa: 'Alexa, discover devices'.<b><br><br>";
+    h+= "Alexa should tell you that it found a new device, if it did reset the desk lamp to return to the normal mode.</font>";
+    webServer.send(200, "text/html", h);
+    delay(100);
+    webServer.stop();
+    delay(500);
+    webServer.close();
+    delay(500);
+
+
+    webServer2.onNotFound([]() {
+    if (!espalexa.handleAlexaApiCall(webServer2.uri(), webServer2.arg(0))) //if you don't know the URI, ask espalexa whether it is an Alexa control request
+    {
+      //whatever you want to do with 404s
+      webServer2.send(404, "text/plain", "Not found");
+    }
+    });
+    espalexa.begin(&webServer2);
+    delay(100);
+    while(1)
+    {
+      espalexa.loop();
+      delay(1);
+    }
+  });
+#endif
+
+httpUpdateServer.setup(&webServer);
 
   webServer.on("/all", HTTP_GET, []() {
     String json = getFieldsJson(fields, fieldCount);
@@ -384,6 +446,7 @@ void setup() {
     String g = webServer.arg("g");
     String b = webServer.arg("b");
     setSolidColor(r.toInt(), g.toInt(), b.toInt());
+    alexa_main->setColor(r.toInt(),g.toInt(),b.toInt());
     sendString(String(solidColor.r) + "," + String(solidColor.g) + "," + String(solidColor.b));
   });
 
@@ -414,6 +477,7 @@ void setup() {
   webServer.on("/brightness", HTTP_POST, []() {
     String value = webServer.arg("value");
     setBrightness(value.toInt());
+    alexa_main->setValue(brightness);
     sendInt(brightness);
   });
 
@@ -428,6 +492,7 @@ void setup() {
     setAutoplayDuration(value.toInt());
     sendInt(autoplayDuration);
   });
+
 
   //list directory
   webServer.on("/list", HTTP_GET, handleFileList);
@@ -444,10 +509,16 @@ void setup() {
   webServer.on("/edit", HTTP_POST, []() {
     webServer.send(200, "text/plain", "");
   }, handleFileUpload);
-
-  webServer.serveStatic("/", SPIFFS, "/", "max-age=86400");
-
-  webServer.begin();
+  
+webServer.serveStatic("/", SPIFFS, "/", "max-age=86400");
+  
+  #ifdef ENABLE_ALEXA_SUPPORT
+    espalexa.begin(&webServer);
+  #endif
+  #ifndef ENABLE_ALEXA_SUPPORT
+    webServer.begin();
+  #endif
+  
   Serial.println("HTTP web server started");
 
   //  webSocketsServer.begin();
@@ -455,6 +526,64 @@ void setup() {
   //  Serial.println("Web socket server started");
 
   autoPlayTimeout = millis() + (autoplayDuration * 1000);
+}
+
+void initApMode()
+{
+  WiFi.mode(WIFI_AP);
+
+  // Do a little work to get a unique-ish name. Append the
+  // last two bytes of the MAC (HEX'd) to "Thing-":
+  uint8_t mac[WL_MAC_ADDR_LENGTH];
+  WiFi.softAPmacAddress(mac);
+  String macID = String(mac[WL_MAC_ADDR_LENGTH - 2], HEX) +
+    String(mac[WL_MAC_ADDR_LENGTH - 1], HEX);
+  macID.toUpperCase();
+  String AP_NameString = "ESP8266 Thing " + macID;
+
+  char AP_NameChar[AP_NameString.length() + 1];
+  memset(AP_NameChar, 0, AP_NameString.length() + 1);
+
+  for (int i = 0; i < AP_NameString.length(); i++)
+    AP_NameChar[i] = AP_NameString.charAt(i);
+
+  WiFi.softAP(AP_NameChar, WiFiAPPSK);
+
+  Serial.printf("Connect to Wi-Fi access point: %s\n", AP_NameChar);
+  Serial.println("and open http://192.168.4.1 in your browser");
+}
+
+boolean connectWifi() {
+  boolean state = true;
+  int i = 0;
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  Serial.println("");
+  Serial.println("Connecting to WiFi");
+
+  // Wait for connection
+  Serial.print("Connecting...");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    if (i > 20) {
+      state = false; break;
+    }
+    i++;
+  }
+  Serial.println("");
+  if (state) {
+    Serial.print("Connected to ");
+    Serial.println(ssid);
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+  }
+  else {
+    Serial.println("Connection failed.");
+  }
+  delay(100);
+  return state;
 }
 
 void sendInt(uint8_t value)
@@ -485,7 +614,14 @@ void loop() {
 
   //  dnsServer.processNextRequest();
   //  webSocketsServer.loop();
-  webServer.handleClient();
+  #ifdef ENABLE_ALEXA_SUPPORT
+    espalexa.loop();
+  #endif
+  #ifndef ENABLE_ALEXA_SUPPORT
+    webServer.handleClient();
+  #endif
+  
+  
 
   //  handleIrInput();
 
@@ -1014,6 +1150,35 @@ void showSolidColor()
 
 // Patterns from FastLED example DemoReel100: https://github.com/FastLED/FastLED/blob/master/examples/DemoReel100/DemoReel100.ino
 
+void rainbow_strobe()
+{
+  if(autoplay==1)adjustPattern(true);
+  static bool p = false;
+  static long lm = 0;
+  if(millis()-lm>(128-(animationspeed/2)))
+  {
+    if(p) fill_solid(leds, NUM_LEDS, CRGB(0,0,0));
+    else fill_solid(leds, NUM_LEDS, CHSV(gHue, 255, 255));
+    lm = millis();
+    p=!p;
+  }
+}
+
+void strobe()
+{
+  if(autoplay==1)adjustPattern(true);
+  static bool p = false;
+  static long lm = 0;
+  if(millis()-lm>(128-(animationspeed/2)))
+  {
+    if(p) fill_solid(leds, NUM_LEDS, CRGB(0,0,0));
+    else fill_solid(leds, NUM_LEDS, solidColor);
+    lm = millis();
+    p=!p;
+  }
+}
+
+
 void rainbow()
 {
   for (int l = 0; l < LINE_COUNT; l++)
@@ -1537,3 +1702,77 @@ void soundReactive()
   //Serial.printf("%d, %d\n", mlevel, level);
 #endif
 }
+
+
+
+#ifdef ENABLE_ALEXA_SUPPORT
+void mainAlexaEvent(EspalexaDevice* d) {
+  if (d == nullptr) return;
+  
+  Serial.print("Alexa update: rgb: ");Serial.print(d->getR() + d->getG() + d->getB());Serial.print(", b: ");Serial.println(d->getValue());
+  if(d->getValue()==0)setPower(0); else {
+    setPower(1);
+    setBrightness(d->getValue());
+  }
+  static int lr;
+  static int lg;
+  static int lb;
+  if((lr != NULL && lr != d->getR() && lg != d->getG() && lb != d->getB()) || currentPatternIndex == patternCount -1)
+  {
+    setSolidColor(d->getR(), d->getG(), d->getB());
+    setPattern(patternCount - 1);
+  }
+  lr = d->getR();
+  lg = d->getG();
+  lb = d->getB();
+}
+
+#ifdef AddStrobeDevice 
+    void AlexaStrobeEvent(EspalexaDevice* d) {
+  if (d == nullptr) return;
+  
+  Serial.print("Alexa Strobe update: rgb: ");Serial.print(d->getR() + d->getG() + d->getB());Serial.print(", b: ");Serial.println(d->getValue());
+  if(d->getValue()==0)setPattern(patternCount-1); else {
+    if(d->getValue()==255)
+    {
+      setBrightness(255);
+      setPattern(13);
+    }
+    else animationspeed = d->getValue();
+    d->setValue(animationspeed);
+  }
+  static int lr;
+  static int lg;
+  static int lb;
+  if((lr != NULL && lr != d->getR() && lg != d->getG() && lb != d->getB()) || currentPatternIndex == patternCount -1)
+  {
+    setSolidColor(d->getR(), d->getG(), d->getB());
+    setPattern(12);
+  }
+  lr = d->getR();
+  lg = d->getG();
+  lb = d->getB();
+  
+}
+#endif
+#ifdef AddAutoplayDevice
+void AlexaAutoplayEvent(EspalexaDevice* d) {
+  if (d == nullptr) return;
+  Serial.print("Alexa Autoplay update: state: ");Serial.println(d->getPercent());
+  if(d->getValue()>0)
+  {
+    setAutoplay(1);
+    setAutoplayDuration(d->getPercent());
+  }
+  else setAutoplay(0);
+}
+#endif
+#ifdef AddSpecificPatternDevice
+void AlexaSpecificEvent(EspalexaDevice* d) {
+  if (d == nullptr) return;
+  Serial.print("Alexa Specific Pattern update: state: ");Serial.println(d->getValue());
+  if(d->getValue()!=0)setPattern(SpecificPattern);
+  else setPattern(patternCount -1);
+}
+#endif
+#endif
