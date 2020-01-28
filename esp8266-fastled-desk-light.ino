@@ -40,7 +40,7 @@ extern "C" {
 
 const bool apMode = false;        // set to true if the esp8266 should open an access point
 
-//#define SOUND_REACTIVE            // Uncomment to enable the Sound reactive mode
+#define SOUND_REACTIVE            // Uncomment to enable the Sound reactive mode
 #define SOUND_SENSOR_PIN A0       // An Analog sensor must be connected to an analog pin
 #define SENSOR_TYPE 1             // 0: Digital Sensor, 1: Analog Sensor
 
@@ -252,7 +252,7 @@ const String paletteNames[paletteCount] = {
 void setup() {
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
 #ifdef SOUND_REACTIVE
-  patterns[ARRAY_SIZE(patterns) - 2] = { soundReactive,          "Sound Reactive" };
+  patterns[patternCount - 2] = { soundReactive,          "Sound Reactive" };
 #endif // SOUND_REACTIVE
   Serial.begin(115200);
   delay(100);
@@ -1648,7 +1648,7 @@ void Decay_Ring(int pos, int decay)
 void soundReactive()
 {
   static int minlevel = 0;
-  static int decay = 20;
+  static int decay = 60;
   static double lastlevel = 2;
   static double level = 0;
   #define arrsize 3
@@ -1666,9 +1666,40 @@ void soundReactive()
   }
   fadeToBlackBy(leds + level, LEDS_PER_LINE - level, decay);
 #endif
-#if SENSOR_TYPE == 1
+#if SENSOR_TYPE > 0
+#if SENSOR_TYPE == 2
   
-  int measure = analogRead(SOUND_SENSOR_PIN);
+  int measure = 0;
+  
+  for(int it=0;it<5;it++)
+  {
+    int m = analogRead(SOUND_SENSOR_PIN);
+    Serial.println(m);
+    if(m < 450 && m >350) m =0;
+    else if( m < 350)m =(400-m)*2;
+    if(m > 400)m -=400;
+    measure += m;
+  }
+  measure /=5;
+  #endif
+#if SENSOR_TYPE == 1
+  int measure = 0;
+  
+  for(int it=0;it<5;it++)
+  {
+    int m = analogRead(SOUND_SENSOR_PIN);
+    //Serial.println(m);
+    m-=800;
+    m *= -1;
+    if(m<100)m=0;
+    measure += m;
+  }
+  measure /=5;
+  measure /=2;
+#endif
+  //Serial.println(measure);
+  
+
   iter++;
   if (iter > arrsize)iter = 0;
   measure8avg[iter] = measure;
@@ -1679,8 +1710,10 @@ void soundReactive()
   }
   avg /= arrsize;
 
-  int mlevel = map(avg, 0, 1024, 0, LEDS_PER_LINE);
-  
+  avg=measure;
+
+  int mlevel = map(avg, 30, 300, 1, LEDS_PER_LINE);
+  if(mlevel <1)mlevel=1;
   //if (lastlevel > mlevel) level = lastlevel  - 0.8;
   //else if (lastlevel < mlevel) level = lastlevel+1;
   level = mlevel;
@@ -1697,13 +1730,13 @@ void soundReactive()
     //Color_Ring(i, CHSV(0, 0, 0));
   }
   lastlevel = level;
-  //Serial.println(measure);
+  
   //Serial.print(mlevel); Serial.print(" "); Serial.println(level);
   //Serial.printf("%d, %d\n", mlevel, level);
 #endif
 }
 
-
+//################################################################################
 
 #ifdef ENABLE_ALEXA_SUPPORT
 void mainAlexaEvent(EspalexaDevice* d) {
