@@ -10,7 +10,7 @@ This is a fork of [jasoncoon's esp8266 fastled webserver](https://github.com/jas
 
 [![https://www.thingiverse.com/thing:4129249](preview2.gif?raw=true)](https://www.thingiverse.com/thing:4129249)
 
-<img src="https://www.pngkit.com/png/detail/835-8355119_np-amazon-alexa-badge-color-1a-2018-9.png" align="left" width="200px"><br>
+<img src="https://www.pngkit.com/png/detail/835-8355119_np-amazon-alexa-badge-color-1a-2018-9.png" align="left" width="200px"><br><br><br>
 
 
 
