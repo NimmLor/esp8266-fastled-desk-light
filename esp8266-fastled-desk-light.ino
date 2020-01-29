@@ -41,14 +41,15 @@ extern "C" {
 
 const bool apMode = false;        // set to true if the esp8266 should open an access point
 
-#define SOUND_REACTIVE            // Uncomment to enable the Sound reactive mode
+//#define SOUND_REACTIVE            // Uncomment to enable the Sound reactive mode
 #define SOUND_SENSOR_PIN A0       // An Analog sensor should be connected to an analog pin
-#define SENSOR_TYPE 1             // 0: Digital Sensor, 1: Analog Sensor 
+#define SENSOR_TYPE 1             // 0: Dumb Sensors, 1: MAX4466 Sound Sensor, 2: MAX9814 Sound Sensor
 
 #define HOSTNAME "ESP8266 Desk Lamp"      // Name that appears in your network
 #define CORRECTION UncorrectedColor       // If colors are weird use TypicalLEDStrip
 
-#define RANDOM_AUTOPLAY_PATTERN   // if enabled the next pattern for autoplay is choosen at random, if commented out patterns will play in order
+#define RANDOM_AUTOPLAY_PATTERN   // if enabled the next pattern for autoplay is choosen at random, 
+                                  // if commented out patterns will play in order
 #define ENABLE_ALEXA_SUPPORT      // Espalexa library required
 
 /*######################## MAIN CONFIG END ####################*/
@@ -93,7 +94,7 @@ ESP8266HTTPUpdateServer httpUpdateServer;
 #define FRAMES_PER_SECOND  120  // here you can control the speed. With the Access Point / Web Server the animations run a bit slower.
 #define SOUND_REACTIVE_FPS 120
 
-
+A
 #include "Secrets.h" // this file is intentionally not included in the sketch, so nobody accidentally commits their secret information.
 // create a Secrets.h file with the following:
 // AP mode password
