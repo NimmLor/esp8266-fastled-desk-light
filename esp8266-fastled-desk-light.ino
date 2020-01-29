@@ -35,39 +35,51 @@ extern "C" {
 #define LED_TYPE      WS2812B     // You might also use a WS2811 or any other strip that is fastled compatible 
 #define COLOR_ORDER   GRB         // Change this if colors are swapped (in my case, red was swapped with green)
 #define MILLI_AMPS    2000        // IMPORTANT: set the max milli-Amps of your power supply (4A = 4000mA)
+#define VOLTS         5           // Voltage of the Power Supply
 #define LINE_COUNT    8           // Amount of led strip pieces
 #define LEDS_PER_LINE 10          // Amount of led pixel per single led strip piece
 
 const bool apMode = false;        // set to true if the esp8266 should open an access point
 
 #define SOUND_REACTIVE            // Uncomment to enable the Sound reactive mode
-#define SOUND_SENSOR_PIN A0       // An Analog sensor must be connected to an analog pin
-#define SENSOR_TYPE 1             // 0: Digital Sensor, 1: Analog Sensor
+#define SOUND_SENSOR_PIN A0       // An Analog sensor should be connected to an analog pin
+#define SENSOR_TYPE 1             // 0: Digital Sensor, 1: Analog Sensor 
 
-
-#define HOSTNAME "ESP8266 - Desk Lamp"   // Name that appears in your network
+#define HOSTNAME "ESP8266 Desk Lamp"      // Name that appears in your network
 #define CORRECTION UncorrectedColor       // If colors are weird use TypicalLEDStrip
 
 #define RANDOM_AUTOPLAY_PATTERN   // if enabled the next pattern for autoplay is choosen at random, if commented out patterns will play in order
-#define ENABLE_ALEXA_SUPPORT    // Espalexa library required
-
-
+#define ENABLE_ALEXA_SUPPORT      // Espalexa library required
 
 /*######################## MAIN CONFIG END ####################*/
 
-/*######## Alexa Configuration ########*/
+
+/*############ Alexa Configuration ############*/
+/* This part configures the devices that can be detected,
+ * by your Amazon Alexa device. In order to Connect the device,
+ * open http://ip_of_the_esp8266/alexa in your browser.
+ * Afterwards tell say "Alexa, discover devices" to your device,
+ * after around 30 seconds it should respond with the new devices
+ * it has detected.
+ *
+ * In order to be able to control mutliple parameters of the lamp,
+ * therefor the code creates multiple devices. 
+ *
+ * To add those extra devices remove the two "//" in front of the,
+ * defines below.
+ */
 #ifdef ENABLE_ALEXA_SUPPORT
-  #define ALEXA_DEVICE_NAME           "Lampe"
-  #define AddAutoplayDevice           "Lampe Autoplay"
-  #define AddStrobeDevice             "Lampe Strobo"
-  #define AddSpecificPatternDevice    "Lampe Standard"
+  #define ALEXA_DEVICE_NAME           "Lamp"
+  //#define AddAutoplayDevice           "Lamp Autoplay"
+  //#define AddStrobeDevice             "Lamp Strobe"
+  //#define AddSpecificPatternDevice    "Lamp Party"
 
         
   #ifdef AddSpecificPatternDevice
     #define SpecificPattern 0   // Parameter defines what pattern gets executed
   #endif
 #endif // ENABLE_ALEXA_SUPPORT
-/*###### Alexa Configuration END ######*/
+/*########## Alexa Configuration END ##########*/
 
 
 
@@ -84,7 +96,6 @@ ESP8266HTTPUpdateServer httpUpdateServer;
 
 #include "Secrets.h" // this file is intentionally not included in the sketch, so nobody accidentally commits their secret information.
 // create a Secrets.h file with the following:
-
 // AP mode password
 // const char WiFiAPPSK[] = "your-password";
 
@@ -97,7 +108,6 @@ ESP8266HTTPUpdateServer httpUpdateServer;
   void mainAlexaEvent(EspalexaDevice*);
   Espalexa espalexa;
   ESP8266WebServer webServer2(80);
-  
   EspalexaDevice* alexa_main;
 #endif // ENABLE_ALEXA_SUPPORT
 
@@ -263,7 +273,7 @@ void setup() {
   FastLED.setDither(false);
   FastLED.setCorrection(CORRECTION);
   FastLED.setBrightness(brightness);
-  FastLED.setMaxPowerInVoltsAndMilliamps(5, MILLI_AMPS);
+  FastLED.setMaxPowerInVoltsAndMilliamps(VOLTS, MILLI_AMPS);
   fill_solid(leds, NUM_LEDS, CRGB::Black);
   FastLED.show();
 
@@ -322,7 +332,11 @@ void setup() {
 
 
 #ifdef ENABLE_ALEXA_SUPPORT
+  #ifdef ALEXA_DEVICE_NAME
   alexa_main = new EspalexaDevice(ALEXA_DEVICE_NAME, mainAlexaEvent, EspalexaDeviceType::color);
+  #else
+  alexa_main = new EspalexaDevice(HOSTNAME, mainAlexaEvent, EspalexaDeviceType::color);
+  #endif
   espalexa.addDevice(alexa_main);
   #ifdef AddAutoplayDevice
     espalexa.addDevice(AddAutoplayDevice, AlexaAutoplayEvent, EspalexaDeviceType::onoff); //non-dimmable device
@@ -1688,18 +1702,15 @@ void soundReactive()
   for(int it=0;it<5;it++)
   {
     int m = analogRead(SOUND_SENSOR_PIN);
-    //Serial.println(m);
     m-=800;
     m *= -1;
     if(m<100)m=0;
     measure += m;
   }
   measure /=5;
-  measure /=2;
+  measure /=2;  // cut the volts in half
 #endif
   //Serial.println(measure);
-  
-
   iter++;
   if (iter > arrsize)iter = 0;
   measure8avg[iter] = measure;
@@ -1736,7 +1747,7 @@ void soundReactive()
 #endif
 }
 
-//################################################################################
+//############################## ALEXA Device Events ##############################
 
 #ifdef ENABLE_ALEXA_SUPPORT
 void mainAlexaEvent(EspalexaDevice* d) {
