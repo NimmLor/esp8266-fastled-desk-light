@@ -94,7 +94,7 @@ ESP8266HTTPUpdateServer httpUpdateServer;
 #define FRAMES_PER_SECOND  120  // here you can control the speed. With the Access Point / Web Server the animations run a bit slower.
 #define SOUND_REACTIVE_FPS 120
 
-A
+
 #include "Secrets.h" // this file is intentionally not included in the sketch, so nobody accidentally commits their secret information.
 // create a Secrets.h file with the following:
 // AP mode password
