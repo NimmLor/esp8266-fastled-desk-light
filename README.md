@@ -33,7 +33,7 @@ Installation
 
 Features
 --------
-* Turn the Logo on and off
+* Turn the Lamp on and off
 * **ALEXA SMART HOME DEVICE**
 * **Sound Reactive Mode**
 * Adjust the brightness, color and patterns
