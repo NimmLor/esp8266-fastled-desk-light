@@ -1,4 +1,8 @@
-# FastLED + ESP8266 Web Server for Desk Lamp
+# This repo has been merged and moved [here](https://github.com/NimmLor/esp8266-fastled-iot-webserver)
+
+https://github.com/NimmLor/esp8266-fastled-iot-webserver
+
+# LEGACY  FastLED + ESP8266 Web Server for Desk Lamp
 
 
 
